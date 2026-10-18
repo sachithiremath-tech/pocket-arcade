@@ -1,0 +1,210 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Pocket Arcade</title>
+<meta name="theme-color" content="#0F1424"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#0F1424;--card:#1A2138;--cell:#242C48;--tx:#F2F4FA;--mu:#A9B1C9;--co:#FF6B4A;--mi:#5BE3B0;--ye:#FFC857;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}body{background:var(--bg);color:var(--tx);font-family:'Space Grotesk',system-ui,sans-serif}
+#app{max-width:430px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:24px 20px 0;gap:18px}
+h1{margin:0;font-size:28px}button{font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}button:focus-visible,input:focus-visible{outline:3px solid #FFC857;outline-offset:2px}:root{color-scheme:dark}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.badge{background:var(--mi);color:var(--bg);font-size:12px;font-weight:700;padding:6px 10px;border-radius:99px}
+.card{background:var(--card);border-radius:16px;padding:14px}.mu{color:var(--mu);font-size:13px}
+.btn{min-height:48px;border:0;border-radius:12px;background:var(--co);color:var(--bg);font-weight:700;font-size:15px;padding:0 20px}
+.btn.o{background:none;border:2px solid var(--mu);color:var(--tx);font-weight:600}
+.hero{background:var(--co);color:var(--bg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.hero .btn{background:var(--bg);color:var(--tx)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{text-align:left;border:0;color:var(--tx);display:flex;flex-direction:column;gap:8px}.tile i{display:block;height:84px;border-radius:10px}
+.tile b{font-size:16px}
+#main{flex:1;display:flex;flex-direction:column;gap:18px}
+nav{margin:auto -20px 0;display:flex;background:var(--card);padding:10px 20px calc(14px + env(safe-area-inset-bottom,0px));position:sticky;bottom:0}
+nav button{flex:1;min-height:44px;background:none;border:0;color:var(--mu);font-size:14px}nav button.on{color:var(--co);font-weight:700}
+.stats{display:flex;gap:12px}.stats .card{flex:1}.stats b{display:block;font-size:24px}
+.b2048{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--card);padding:12px;border-radius:20px;aspect-ratio:1;touch-action:none}
+.b2048 div{border-radius:10px;background:var(--cell);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(18px,7vw,30px);color:var(--bg)}
+canvas{width:100%;aspect-ratio:1;background:var(--card);border-radius:20px;touch-action:none;display:block}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--card);padding:12px;border-radius:20px;aspect-ratio:1}
+.sg button{border:0;border-radius:10px;background:var(--cell);color:var(--tx);font-size:28px;font-weight:700}
+.sg button.g{color:var(--mu)}.sg button.s{outline:3px solid var(--ye)}.sg button.x{color:#FF8FA3}
+.pad{display:flex;gap:10px}.pad button{flex:1;min-height:52px;border:0;border-radius:12px;background:var(--cell);color:var(--tx);font-size:20px;font-weight:700}
+.li{display:flex;justify-content:space-between;align-items:center}
+</style></head><body><div id="app"><div id="main"></div>
+<nav><button data-v="lib">Library</button><button data-v="play">Play</button><button data-v="saved">Saved</button></nav></div>
+<script>
+var LS={get:function(k,d){try{var v=localStorage.getItem('pa_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set:function(k,v){try{localStorage.setItem('pa_'+k,JSON.stringify(v))}catch(e){}}};
+var $=function(s){return document.querySelector(s)},M=$('#main');
+var view='lib',game=null,timer=null,keyH=null;
+var G={g2048:{n:'2048',c:'#FFC857',d:'Puzzle'},snake:{n:'Snake',c:'#5BE3B0',d:'Arcade'},sudoku:{n:'Mini Sudoku',c:'#8E9BFF',d:'Puzzle 4x4'},ttt:{n:'Tic-Tac-Toe',c:'#FF8FA3',d:'Vs computer'},mem:{n:'Memory Match',c:'#FFB347',d:'Cards'},rps:{n:'Rock Paper Scissors',c:'#7FD1FF',d:'Vs computer'},sim:{n:'Simon',c:'#C79BFF',d:'Memory'},rx:{n:'Reaction Time',c:'#FF6B4A',d:'Reflex'},num:{n:'Number Guess',c:'#A9E56B',d:'Logic'},mine:{n:'Minesweeper',c:'#8FA3C9',d:'Puzzle 8x8'},chess:{n:'Chess',c:'#9AA7FF',d:'Vs computer'},word:{n:'Word Hunt',c:'#FFA6C9',d:'Word search'}};
+var S=function(x){return '<svg width="52" height="52" viewBox="0 0 48 48" fill="none" stroke="#0F1424" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+x+'</svg>'};
+var LOGO={g2048:S('<rect x="6" y="6" width="16" height="16" rx="3" fill="#0F1424"/><rect x="26" y="6" width="16" height="16" rx="3"/><rect x="6" y="26" width="16" height="16" rx="3"/><rect x="26" y="26" width="16" height="16" rx="3" fill="#0F1424"/>'),
+snake:S('<path d="M8 36h22a6 6 0 0 0 0-12H18a6 6 0 0 1 0-12h20"/><circle cx="40" cy="12" r="3" fill="#0F1424"/>'),
+sudoku:S('<rect x="7" y="7" width="34" height="34" rx="3"/><path d="M24 7v34M7 24h34"/><circle cx="15" cy="15" r="2.5" fill="#0F1424"/><circle cx="33" cy="33" r="2.5" fill="#0F1424"/>'),
+ttt:S('<path d="M18 6v36M30 6v36M6 18h36M6 30h36"/><path d="M8 8l8 8M16 8l-8 8"/><circle cx="36" cy="36" r="4"/>'),
+mem:S('<rect x="5" y="10" width="20" height="28" rx="3" fill="#0F1424"/><rect x="23" y="10" width="20" height="28" rx="3"/><circle cx="33" cy="24" r="4"/>'),
+rps:S('<circle cx="11" cy="24" r="6" fill="#0F1424"/><rect x="20" y="16" width="10" height="16" rx="2"/><path d="M36 16l8 16M44 16l-8 16"/>'),
+sim:S('<circle cx="14" cy="14" r="8" fill="#0F1424"/><circle cx="34" cy="14" r="8"/><circle cx="14" cy="34" r="8"/><circle cx="34" cy="34" r="8" fill="#0F1424"/>'),
+rx:S('<path d="M27 5L11 27h12l-3 16 17-24H25z" fill="#0F1424"/>'),
+num:S('<text x="24" y="35" text-anchor="middle" font-size="32" font-weight="700" fill="#0F1424" stroke="none">?</text>'),
+mine:S('<circle cx="24" cy="24" r="9" fill="#0F1424"/><path d="M24 7v6M24 35v6M7 24h6M35 24h6M12 12l4 4M32 32l4 4M36 12l-4 4M16 32l-4 4"/>'),
+chess:S('<path d="M13 22V14h5v4h4v-4h4v4h4v-4h5v8zM16 22v14M32 22v14M10 40h28M12 36h24"/>'),
+word:S('<circle cx="21" cy="21" r="12"/><path d="M30 30l12 12"/><path d="M15 21h12" />')};
+function halt(){clearInterval(timer);timer=null;if(keyH){document.removeEventListener('keydown',keyH);keyH=null}}
+function go(v,g){halt();M.onclick=null;view=v;if(g)game=g;document.querySelectorAll('nav button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v)});
+ if(v==='lib')lib();else if(v==='saved')saved();else if(game==='g2048')g2048();else if(game==='snake')snake();else if(game==='sudoku')sudoku();else if(game&&window['pg_'+game])window['pg_'+game]();else{v='lib';lib()}}
+function head(t,sub){return '<div class="row"><h1>'+t+'</h1>'+(sub?'<div class="badge">'+sub+'</div>':'')+'</div>'}
+function lib(){var s=LS.get('s2048',null);
+ var h=head('Pocket Arcade')+'<div class="hero"><b style="font-size:13px">'+(s?'CONTINUE':'START')+'</b><b style="font-size:26px">'+(s?'2048':'Pick a game')+'</b><span>'+(s?'Score '+s.score.toLocaleString()+' · Best '+LS.get('b2048',0).toLocaleString():'Pick a game and jump in')+'</span><button class="btn" data-g="'+(s?'g2048':'snake')+'">'+(s?'Resume':'Play Snake')+'</button></div><div style="font-size:18px;font-weight:600">Games</div><div class="grid">';
+ for(var k in G)h+='<button class="card tile" data-g="'+k+'"><i style="background:'+G[k].c+';display:flex;align-items:center;justify-content:center">'+LOGO[k]+'</i><b>'+G[k].n+'</b><span class="mu">'+G[k].d+'</span></button>';
+ M.innerHTML=h+'</div>'}
+function saved(){var h=head('Saved')+'<div class="card"><div class="li"><span>Best 2048 score</span><b>'+LS.get('b2048',0).toLocaleString()+'</b></div></div><div class="card"><div class="li"><span>Best Snake length</span><b>'+LS.get('bsnake',0)+'</b></div></div><div class="card"><div class="li"><span>Mini Sudoku solved</span><b>'+LS.get('ssud',0)+'</b></div></div><div class="card"><div class="li"><span>Fastest reaction</span><b>'+(LS.get('brx',0)?LS.get('brx',0)+' ms':'-')+'</b></div></div><div class="card"><div class="li"><span>Best Memory Match moves</span><b>'+(LS.get('bmem',0)||'-')+'</b></div></div><div class="card"><div class="li"><span>Fewest Number Guess tries</span><b>'+(LS.get('bnum',0)||'-')+'</b></div></div><button class="btn o" data-act="reset">Clear saved data</button>';M.innerHTML=h}
+function bar(n){return '<div class="row"><button class="btn o" style="min-height:44px" data-v="lib">Back</button><b style="font-size:18px">'+n+'</b><span style="width:70px"></span></div>'}
+function swipe(el,f){var x,y;el.addEventListener('touchstart',function(e){x=e.touches[0].clientX;y=e.touches[0].clientY},{passive:true});
+ el.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-x,dy=e.changedTouches[0].clientY-y;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;f(Math.abs(dx)>Math.abs(dy)?(dx>0?'R':'L'):(dy>0?'D':'U'))},{passive:true})}
+/* 2048 */
+var COL={0:'',2:'#FFE9B0',4:'#FFDD85',8:'#FFC857',16:'#FFB347',32:'#FF9A5C',64:'#FF7F5C',128:'#FF6B4A',256:'#FF8FA3',512:'#8E9BFF',1024:'#5BE3B0',2048:'#F2F4FA'};
+function g2048(){var st=LS.get('s2048',null),b,sc,prev=null;
+ function fresh(){b=[];for(var i=0;i<16;i++)b.push(0);sc=0;prev=null;add();add()}
+ function add(){var e=[];b.forEach(function(v,i){if(!v)e.push(i)});if(e.length)b[e[Math.floor(Math.random()*e.length)]]=Math.random()<.9?2:4}
+ if(st){b=st.b;sc=st.score}else fresh();
+ M.innerHTML=bar('2048')+'<div class="stats"><div class="card"><span class="mu">SCORE</span><b id="sc"></b></div><div class="card"><span class="mu">BEST</span><b id="bs"></b></div></div><div class="b2048" id="bd"></div><div class="row"><button class="btn" style="flex:1" id="nw">New game</button><button class="btn o" style="flex:1" id="un">Undo</button></div><div class="mu" style="text-align:center" id="ms">Swipe or use arrow keys to merge tiles</div>';
+ function draw(){var best=Math.max(LS.get('b2048',0),sc);LS.set('b2048',best);$('#sc').textContent=sc.toLocaleString();$('#bs').textContent=best.toLocaleString();
+  $('#bd').innerHTML=b.map(function(v){return '<div style="'+(v?'background:'+(COL[v]||'#F2F4FA'):'')+'">'+(v||'')+'</div>'}).join('');LS.set('s2048',{b:b,score:sc})}
+ function line(a){var r=a.filter(Boolean),o=[],i,g=0;for(i=0;i<r.length;i++){if(r[i]===r[i+1]){o.push(r[i]*2);g+=r[i]*2;i++}else o.push(r[i])}while(o.length<4)o.push(0);return[o,g]}
+ function mv(d){var o=b.slice(),ns=sc,i,j,ch=false,nb=b.slice();
+  for(i=0;i<4;i++){var idx=[];for(j=0;j<4;j++)idx.push(d==='L'?i*4+j:d==='R'?i*4+3-j:d==='U'?j*4+i:(3-j)*4+i);
+   var r=line(idx.map(function(k){return b[k]}));idx.forEach(function(k,n){nb[k]=r[0][n]});ns+=r[1]}
+  ch=nb.some(function(v,i){return v!==b[i]});if(!ch)return;prev={b:o,score:sc};b=nb;sc=ns;add();draw();
+  var can=b.some(function(v){return!v});if(!can){for(i=0;i<16&&!can;i++){var x=i%4;if((x<3&&b[i]===b[i+1])||(i<12&&b[i]===b[i+4]))can=true}}
+  $('#ms').textContent=can?'Swipe or use arrow keys to merge tiles':'No moves left. Start a new game.'}
+ keyH=function(e){var m={ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D'}[e.key];if(m){e.preventDefault();mv(m)}};document.addEventListener('keydown',keyH);
+ swipe($('#bd'),mv);$('#nw').onclick=function(){fresh();draw();$('#ms').textContent='New game'};
+ $('#un').onclick=function(){if(prev){b=prev.b;sc=prev.score;prev=null;draw()}};draw()}
+/* Snake */
+function snake(){var N=15,C=300,s,dir,nd,food,alive,sc;
+ M.innerHTML=bar('Snake')+'<div class="stats"><div class="card"><span class="mu">SCORE</span><b id="sc">0</b></div><div class="card"><span class="mu">BEST</span><b>'+LS.get('bsnake',0)+'</b></div></div><canvas id="cv" width="'+C+'" height="'+C+'"></canvas><div class="pad"><button data-d="L" aria-label="Left">&larr;</button><button data-d="U" aria-label="Up">&uarr;</button><button data-d="D" aria-label="Down">&darr;</button><button data-d="R" aria-label="Right">&rarr;</button></div><button class="btn" id="nw">New game</button><div class="mu" style="text-align:center" id="ms">Swipe, arrow keys or buttons</div>';
+ var cv=$('#cv'),x=cv.getContext('2d'),u=C/N,V={L:[-1,0],R:[1,0],U:[0,-1],D:[0,1]};
+ function pf(){do{food=[Math.floor(Math.random()*N),Math.floor(Math.random()*N)]}while(s.some(function(p){return p[0]===food[0]&&p[1]===food[1]}))}
+ function reset(){s=[[7,7],[6,7],[5,7]];dir=nd='R';sc=0;alive=true;pf();$('#sc').textContent=0;$('#ms').textContent='Swipe, arrow keys or buttons'}
+ function turn(d){var o={L:'R',R:'L',U:'D',D:'U'};if(d!==o[dir])nd=d}
+ function draw(){x.fillStyle='#1A2138';x.fillRect(0,0,C,C);x.fillStyle='#FF6B4A';x.fillRect(food[0]*u+3,food[1]*u+3,u-6,u-6);
+  s.forEach(function(p,i){x.fillStyle=i?'#5BE3B0':'#F2F4FA';x.fillRect(p[0]*u+1,p[1]*u+1,u-2,u-2)})}
+ function tick(){if(!alive)return;dir=nd;var h=[s[0][0]+V[dir][0],s[0][1]+V[dir][1]];
+  if(h[0]<0||h[1]<0||h[0]>=N||h[1]>=N||s.some(function(p){return p[0]===h[0]&&p[1]===h[1]})){alive=false;$('#ms').textContent='Game over. Tap New game.';return}
+  s.unshift(h);if(h[0]===food[0]&&h[1]===food[1]){sc++;$('#sc').textContent=sc;LS.set('bsnake',Math.max(LS.get('bsnake',0),s.length));pf()}else s.pop();draw()}
+ keyH=function(e){var m={ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D'}[e.key];if(m){e.preventDefault();turn(m)}};document.addEventListener('keydown',keyH);
+ swipe(cv,turn);document.querySelectorAll('[data-d]').forEach(function(b){b.onclick=function(){turn(b.dataset.d)}});
+ $('#nw').onclick=function(){reset();draw()};reset();draw();timer=setInterval(tick,150)}
+/* Mini Sudoku */
+function sudoku(){var base=[[1,2,3,4],[3,4,1,2],[2,1,4,3],[4,3,2,1]],sol,pz,sel=-1,given,cnt=false;
+ function nw(){var p=[1,2,3,4].sort(function(){return Math.random()-.5});sol=[];base.forEach(function(r){r.forEach(function(v){sol.push(p[v-1])})});
+  given=sol.map(function(){return Math.random()<.5});var gc=given.filter(Boolean).length;if(gc<6||gc>11)given=sol.map(function(_,i){return i%2===0});pz=sol.map(function(v,i){return given[i]?v:0});sel=-1;cnt=false}
+ function cf(i){var v=pz[i];if(!v)return false;var r=i>>2,c=i&3;return pz.some(function(w,j){return j!==i&&w===v&&((j>>2)===r||(j&3)===c||((j>>2)>>1===r>>1&&(j&3)>>1===c>>1))})}
+ function draw(){var done=pz.every(function(v,i){return v&&!cf(i)});
+  $('#sg').innerHTML=pz.map(function(v,i){var bad=v&&!given[i]&&cf(i);return '<button data-c="'+i+'" class="'+(given[i]?'g ':'')+(i===sel?'s ':'')+(bad?'x':'')+'" aria-label="Cell '+(i+1)+'">'+(v||'')+'</button>'}).join('');
+  $('#ms').textContent=done?'Solved!':'Tap a cell, then a number. Red means a mistake.';return done}
+ M.innerHTML=bar('Mini Sudoku')+'<div class="sg" id="sg"></div><div class="pad"><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button><button data-n="0" aria-label="Clear">&times;</button></div><button class="btn" id="nw">New puzzle</button><div class="mu" style="text-align:center" id="ms"></div>';
+ M.onclick=function(e){var c=e.target.closest('[data-c]'),n=e.target.closest('[data-n]');if(c&&!given[+c.dataset.c]){sel=+c.dataset.c;draw()}
+  if(n&&sel>=0){pz[sel]=+n.dataset.n;if(draw()&&!cnt){cnt=true;LS.set('ssud',LS.get('ssud',0)+1)}}};
+ $('#nw').onclick=function(){nw();draw()};nw();draw()}
+function ms(t){var e=$('#ms');if(e)e.textContent=t}
+function pg_ttt(){var b,over,W=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+ function win(p){return W.some(function(l){return l.every(function(i){return b[i]===p})})}
+ function full(){return b.every(Boolean)}
+ function draw(){$('#tb').innerHTML=b.map(function(v,i){return '<button data-x="'+i+'" aria-label="Cell '+(i+1)+'" style="color:'+(v==='X'?'#FF6B4A':'#5BE3B0')+'">'+v+'</button>'}).join('')}
+ function cpu(){var m=-1,i,t;['O','X'].forEach(function(p){if(m<0)for(i=0;i<9;i++)if(!b[i]){b[i]=p;t=win(p);b[i]='';if(t){m=i;break}}});
+  if(m<0&&!b[4])m=4;if(m<0){var e=[];b.forEach(function(v,i){if(!v)e.push(i)});m=e[Math.floor(Math.random()*e.length)]}b[m]='O'}
+ function reset(){b=['','','','','','','','',''];over=false;draw();ms('Your move (X)')}
+ M.innerHTML=bar('Tic-Tac-Toe')+'<div class="sg" id="tb" style="grid-template-columns:repeat(3,1fr)"></div><button class="btn" id="nw">New game</button><div class="mu" style="text-align:center" id="ms"></div>';
+ M.onclick=function(e){var c=e.target.closest('[data-x]');if(!c||over)return;var i=+c.dataset.x;if(b[i])return;b[i]='X';
+  if(win('X')){over=1;ms('You win!')}else if(full()){over=1;ms('Draw')}else{cpu();if(win('O')){over=1;ms('Computer wins')}else if(full()){over=1;ms('Draw')}else ms('Your move (X)')}draw()};
+ $('#nw').onclick=reset;reset()}
+function pg_mem(){var L='ABCDEFGH',cs,fl,mt,mv,lock,C=['#FF6B4A','#5BE3B0','#FFC857','#8E9BFF','#FF8FA3','#FFB347','#7FD1FF','#C79BFF'];
+ function draw(){$('#mg').innerHTML=cs.map(function(v,i){var up=fl.indexOf(i)>=0||mt.indexOf(i)>=0;return '<button data-x="'+i+'" aria-label="Card '+(i+1)+'" style="'+(up?'background:'+C[v]+';color:#0F1424':'')+'">'+(up?L[v]:'')+'</button>'}).join('');$('#mv').textContent=mv}
+ function reset(){var a=[];for(var i=0;i<8;i++)a.push(i,i);a.sort(function(){return Math.random()-.5});cs=a;fl=[];mt=[];mv=0;lock=false;draw();ms('Find all pairs')}
+ M.innerHTML=bar('Memory Match')+'<div class="stats"><div class="card"><span class="mu">MOVES</span><b id="mv">0</b></div><div class="card"><span class="mu">BEST</span><b>'+(LS.get('bmem',0)||'-')+'</b></div></div><div class="sg" id="mg"></div><button class="btn" id="nw">New game</button><div class="mu" style="text-align:center" id="ms"></div>';
+ M.onclick=function(e){var c=e.target.closest('[data-x]');if(!c||lock)return;var i=+c.dataset.x;if(fl.indexOf(i)>=0||mt.indexOf(i)>=0)return;fl.push(i);
+  if(fl.length===2){mv++;if(cs[fl[0]]===cs[fl[1]]){mt=mt.concat(fl);fl=[];if(mt.length===16){var b=LS.get('bmem',0);if(!b||mv<b)LS.set('bmem',mv);draw();ms('Done in '+mv+' moves!');return}}else{lock=true;draw();timer=setTimeout(function(){fl=[];lock=false;if($('#mg'))draw()},750);return}}draw()};
+ $('#nw').onclick=reset;reset()}
+function pg_rps(){var w=0,l=0,d=0,O=['Rock','Paper','Scissors'];
+ M.innerHTML=bar('Rock Paper Scissors')+'<div class="stats"><div class="card"><span class="mu">WINS</span><b id="w">0</b></div><div class="card"><span class="mu">LOSSES</span><b id="l">0</b></div><div class="card"><span class="mu">DRAWS</span><b id="d">0</b></div></div><div class="card" style="min-height:120px;display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center" id="rs">Choose your move</div><div class="pad">'+O.map(function(o,i){return '<button data-x="'+i+'">'+o+'</button>'}).join('')+'</div>';
+ M.onclick=function(e){var c=e.target.closest('[data-x]');if(!c)return;var p=+c.dataset.x,q=Math.floor(Math.random()*3),r=(p-q+3)%3;
+  if(r===0)d++;else if(r===1)w++;else l++;
+  $('#rs').textContent='You: '+O[p]+' · Computer: '+O[q]+(r===0?' - Draw':r===1?' - You win!':' - You lose');$('#w').textContent=w;$('#l').textContent=l;$('#d').textContent=d}}
+function pg_sim(){var seq=[],pos=0,busy=true;
+ M.innerHTML=bar('Simon')+'<div class="stats"><div class="card"><span class="mu">ROUND</span><b id="sc">0</b></div></div><div class="sg" style="grid-template-columns:1fr 1fr;gap:12px">'+['#FF6B4A','#5BE3B0','#FFC857','#8E9BFF'].map(function(c,i){return '<button data-x="'+i+'" style="background:'+c+';opacity:.55" aria-label="Pad '+(i+1)+'"></button>'}).join('')+'</div><button class="btn" id="nw">Start</button><div class="mu" style="text-align:center" id="ms">Watch, then repeat the pattern</div>';
+ function fl(i,t){var e=$('[data-x="'+i+'"]');if(!e)return;e.style.opacity=1;setTimeout(function(){e.style.opacity=.55},t||350)}
+ function play(){busy=true;pos=0;var i=0;ms('Watch...');clearInterval(timer);timer=setInterval(function(){if(i<seq.length)fl(seq[i++]);else{clearInterval(timer);busy=false;ms('Your turn')}},650)}
+ function next(){seq.push(Math.floor(Math.random()*4));var e=$('#sc');if(e)e.textContent=seq.length;play()}
+ M.onclick=function(e){var p=e.target.closest('[data-x]');if(!p||busy||!seq.length)return;var i=+p.dataset.x;fl(i,150);
+  if(i!==seq[pos]){ms('Wrong! You reached round '+seq.length+'.');seq=[];busy=true;return}
+  pos++;if(pos===seq.length){busy=true;ms('Nice!');setTimeout(next,700)}};
+ $('#nw').onclick=function(){seq=[];next()}}
+function pg_rx(){var st=0,t0,r;
+ M.innerHTML=bar('Reaction Time')+'<div class="stats"><div class="card"><span class="mu">LAST</span><b id="la">-</b></div><div class="card"><span class="mu">BEST</span><b id="be">'+(LS.get('brx',0)?LS.get('brx',0)+' ms':'-')+'</b></div></div><button id="rx" style="border:0;border-radius:20px;min-height:280px;font-size:22px;font-weight:700;font-family:inherit"></button>';
+ r=$('#rx');function set(bg,fg,t){r.style.background=bg;r.style.color=fg;r.textContent=t}
+ set('#1A2138','#F2F4FA','Tap to start');
+ r.onclick=function(){if(st===0){st=1;set('#FF6B4A','#0F1424','Wait for green...');timer=setTimeout(function(){st=2;t0=performance.now();set('#5BE3B0','#0F1424','TAP NOW!')},1500+Math.random()*2500)}
+  else if(st===1){clearTimeout(timer);st=0;set('#1A2138','#F2F4FA','Too soon! Tap to retry')}
+  else{var d=Math.round(performance.now()-t0);st=0;$('#la').textContent=d+' ms';var b=LS.get('brx',0);if(!b||d<b){LS.set('brx',d);$('#be').textContent=d+' ms'}set('#1A2138','#F2F4FA',d+' ms. Tap to go again')}};M.onclick=null}
+function pg_num(){var s=1+Math.floor(Math.random()*100),n=0,done=false;
+ M.innerHTML=bar('Number Guess')+'<div class="stats"><div class="card"><span class="mu">GUESSES</span><b id="gc">0</b></div><div class="card"><span class="mu">BEST</span><b>'+(LS.get('bnum',0)||'-')+'</b></div></div><label class="mu" for="gi">Guess a number from 1 to 100</label><input id="gi" type="number" min="1" max="100" inputmode="numeric" style="min-height:52px;border-radius:12px;border:2px solid #A9B1C9;background:#1A2138;color:#F2F4FA;font-size:22px;padding:0 14px;font-family:inherit"><button class="btn" id="gb">Guess</button><button class="btn o" id="nw">New number</button><div class="mu" style="text-align:center;font-size:16px" id="ms"></div>';
+ function g(){var v=parseInt($('#gi').value,10);if(done||!(v>=1&&v<=100)){ms('Enter a whole number from 1 to 100');return}n++;$('#gc').textContent=n;
+  if(v===s){done=true;var b=LS.get('bnum',0);if(!b||n<b)LS.set('bnum',n);ms('Correct! '+n+' guesses.')}else ms(v<s?'Higher':'Lower');$('#gi').value='';$('#gi').focus()}
+ $('#gb').onclick=g;$('#gi').onkeydown=function(e){if(e.key==='Enter')g()};
+ $('#nw').onclick=function(){s=1+Math.floor(Math.random()*100);n=0;done=false;$('#gc').textContent=0;ms('New number picked')};M.onclick=null}
+function pg_mine(){var N=8,K=10,c,flag=false,over,lost,first,CL=['','#8E9BFF','#5BE3B0','#FFC857','#FF8FA3','#FF6B4A','#FF6B4A','#FF6B4A','#FF6B4A'];
+ function nb(i){var o=[],x=i%N,y=(i/N)|0;for(var dx=-1;dx<2;dx++)for(var dy=-1;dy<2;dy++){var a=x+dx,b=y+dy;if((dx||dy)&&a>=0&&b>=0&&a<N&&b<N)o.push(b*N+a)}return o}
+ function place(s){var n=0,ex=nb(s).concat([s]);while(n<K){var i=Math.floor(Math.random()*N*N);if(!c[i].m&&ex.indexOf(i)<0){c[i].m=1;n++}}c.forEach(function(q,i){q.n=nb(i).filter(function(j){return c[j].m}).length})}
+ function rev(i){var q=c[i];if(q.r||q.f)return;q.r=1;if(q.m){over=lost=1;return}if(!q.n)nb(i).forEach(rev)}
+ function draw(){var fl=c.filter(function(q){return q.f}).length;
+  $('#mg').innerHTML=c.map(function(q,i){var t='',st='font-size:18px;padding:0;';if(q.r){st+='background:#0F1424;';t=q.m?'X':(q.n||'');if(q.n)st+='color:'+CL[q.n]}else if(over&&q.m){t='X';st+='color:#FF6B4A'}else if(q.f){t='F';st+='color:#FFC857'}return '<button data-x="'+i+'" style="'+st+'" aria-label="Cell '+(i+1)+'">'+t+'</button>'}).join('');
+  $('#fl').textContent=K-fl;$('#md').textContent=flag?'Mode: Flag':'Mode: Dig';ms(lost?'Boom! Game over.':over?'Cleared the field!':'Tap a cell to dig')}
+ function reset(){c=[];for(var i=0;i<N*N;i++)c.push({m:0,r:0,f:0,n:0});over=lost=0;first=true;draw()}
+ M.innerHTML=bar('Minesweeper')+'<div class="stats"><div class="card"><span class="mu">MINES LEFT</span><b id="fl"></b></div></div><div class="sg" id="mg" style="grid-template-columns:repeat(8,1fr);gap:4px;padding:8px"></div><div class="row"><button class="btn o" style="flex:1" data-m="1" id="md"></button><button class="btn" style="flex:1" id="nw">New game</button></div><div class="mu" style="text-align:center" id="ms"></div>';
+ M.onclick=function(e){if(e.target.closest('[data-m]')){flag=!flag;draw();return}var t=e.target.closest('[data-x]');if(!t||over)return;var i=+t.dataset.x;
+  if(flag){if(!c[i].r)c[i].f=!c[i].f}else{if(first){place(i);first=false}rev(i);if(!lost&&c.every(function(q){return q.m||q.r}))over=1}draw()};
+ $('#nw').onclick=reset;reset()}
+function pg_chess(){var b,sel=-1,tg=[],over,busy,mg='Your move',V={p:1,n:3,b:3,r:5,q:9,k:0},U=function(c){return c===c.toUpperCase()};
+ b='rnbqkbnr'.split('').concat(Array(8).fill('p'),Array(32).fill(''),Array(8).fill('P'),'RNBQKBNR'.split(''));
+ function gen(b,w,att){var o=[];for(var i=0;i<64;i++){var c=b[i];if(!c||U(c)!==w)continue;var t=c.toLowerCase(),x=i&7,y=i>>3;
+  var T=function(nx,ny){return nx>=0&&ny>=0&&nx<8&&ny<8?ny*8+nx:-1};
+  if(t==='p'){var d=w?-1:1,s=w?6:1;
+   [-1,1].forEach(function(dx){var j=T(x+dx,y+d);if(j>=0&&(att||(b[j]&&U(b[j])!==w)))o.push([i,j])});
+   if(!att){var j=T(x,y+d);if(j>=0&&!b[j]){o.push([i,j]);var k=T(x,y+2*d);if(y===s&&k>=0&&!b[k])o.push([i,k])}}}
+  else{var D=t==='n'?[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]]:t==='r'?[[1,0],[-1,0],[0,1],[0,-1]]:t==='b'?[[1,1],[1,-1],[-1,1],[-1,-1]]:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],sl=t==='r'||t==='b'||t==='q';
+   D.forEach(function(d){var nx=x+d[0],ny=y+d[1],j;while((j=T(nx,ny))>=0){if(b[j]){if(U(b[j])!==w)o.push([i,j]);break}o.push([i,j]);if(!sl)break;nx+=d[0];ny+=d[1]}})}}
+  return o}
+ function ap(b,m){var n=b.slice(),c=n[m[0]];n[m[1]]=c;n[m[0]]='';if(c==='P'&&m[1]<8)n[m[1]]='Q';if(c==='p'&&m[1]>55)n[m[1]]='q';return n}
+ function chk(b,w){var k=b.indexOf(w?'K':'k');return gen(b,!w,true).some(function(m){return m[1]===k})}
+ function leg(b,w){return gen(b,w).filter(function(m){return!chk(ap(b,m),w)})}
+ function ev(b){var s=0;b.forEach(function(c){if(c)s+=(U(c)?-1:1)*V[c.toLowerCase()]});return s}
+ function ai(){var best=null,bs=-1e9;leg(b,false).forEach(function(m){var nb=ap(b,m),wr=leg(nb,true),s;if(!wr.length)s=chk(nb,true)?1000:0;else{s=1e9;wr.forEach(function(r){var e=ev(ap(nb,r));if(e<s)s=e})}s+=Math.random()*.3;if(s>bs){bs=s;best=m}});if(best)b=ap(b,best)}
+ function st(w){if(!leg(b,w).length){over=1;return chk(b,w)?(w?'Checkmate. You lose.':'Checkmate! You win!'):'Stalemate. Draw.'}return chk(b,w)?(w?'You are in check':'Check!'):(w?'Your move':'Thinking...')}
+ function draw(){$('#cb').innerHTML=b.map(function(c,i){var dk=((i>>3)+i)%2,t=tg.some(function(m){return m[1]===i}),s='padding:0;font-size:26px;background:'+(dk?'#2E3758':'#1F2740')+';color:'+(c&&U(c)?'#F2F4FA':'#FF6B4A')+(t?';box-shadow:inset 0 0 0 3px #5BE3B0':'')+(i===sel?';outline:3px solid #FFC857':'');return '<button data-x="'+i+'" aria-label="Square '+(i+1)+(c?' '+c:'')+'" style="'+s+'">'+c.toUpperCase()+'</button>'}).join('');ms(mg)}
+ M.innerHTML=bar('Chess')+'<div class="sg" id="cb" style="grid-template-columns:repeat(8,1fr);gap:2px;padding:6px"></div><div class="mu" style="text-align:center">You are white (light letters) and move up. Pawns promote to queens. No castling or en passant.</div><button class="btn" id="nw">New game</button><div class="mu" style="text-align:center;font-size:16px" id="ms"></div>';
+ M.onclick=function(e){var t=e.target.closest('[data-x]');if(!t||over||busy)return;var i=+t.dataset.x,mv=tg.filter(function(m){return m[1]===i})[0];
+  if(sel>=0&&mv){b=ap(b,mv);sel=-1;tg=[];mg=st(false);draw();if(!over){busy=true;timer=setTimeout(function(){ai();busy=false;mg=st(true);if($('#cb'))draw()},350)}return}
+  if(b[i]&&U(b[i])){sel=i;tg=leg(b,true).filter(function(m){return m[0]===i})}else{sel=-1;tg=[]}draw()};
+ $('#nw').onclick=function(){clearTimeout(timer);b='rnbqkbnr'.split('').concat(Array(8).fill('p'),Array(32).fill(''),Array(8).fill('P'),'RNBQKBNR'.split(''));sel=-1;tg=[];over=0;busy=false;mg='Your move';draw()};draw()}
+function pg_word(){var W=['PLAY','GAME','SNAKE','CHESS','PUZZLE','MATCH','SCORE','LEVEL','TILES','SPEED','LOGIC','CARDS','MINES','QUEST'],N=8,g,ws,fd,fc,a;
+ function reset(){var D=[[1,0],[0,1],[1,1]],i;g=[];for(i=0;i<64;i++)g.push('');ws=W.slice().sort(function(){return Math.random()-.5}).slice(0,5);var pl=[];fd=[];fc=[];a=-1;
+  ws.forEach(function(w){for(var t=0;t<200;t++){var d=D[Math.floor(Math.random()*3)],x=Math.floor(Math.random()*N),y=Math.floor(Math.random()*N),k,ok=true;if(x+d[0]*(w.length-1)>=N||y+d[1]*(w.length-1)>=N)continue;
+   for(k=0;k<w.length;k++){var c=g[(y+d[1]*k)*N+x+d[0]*k];if(c&&c!==w[k]){ok=false;break}}if(!ok)continue;for(k=0;k<w.length;k++)g[(y+d[1]*k)*N+x+d[0]*k]=w[k];pl.push(w);break}});ws=pl;
+  for(i=0;i<64;i++)if(!g[i])g[i]='ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*26)];draw('Tap the first and last letter of a word')}
+ function draw(m){$('#wg').innerHTML=g.map(function(c,i){return '<button data-x="'+i+'" aria-label="Letter '+c+'" style="padding:0;font-size:20px;'+(fc.indexOf(i)>=0?'background:#5BE3B0;color:#0F1424':'')+(i===a?';outline:3px solid #FFC857':'')+'">'+c+'</button>'}).join('');
+  $('#wl').innerHTML=ws.map(function(w){return '<span style="'+(fd.indexOf(w)>=0?'text-decoration:line-through;color:#5BE3B0':'')+'">'+w+'</span>'}).join(' · ');ms(m)}
+ M.innerHTML=bar('Word Hunt')+'<div class="card" style="font-weight:600;line-height:1.6" id="wl"></div><div class="sg" id="wg" style="grid-template-columns:repeat(8,1fr);gap:4px;padding:8px"></div><button class="btn" id="nw">New puzzle</button><div class="mu" style="text-align:center;font-size:16px" id="ms"></div>';
+ M.onclick=function(e){var t=e.target.closest('[data-x]');if(!t)return;var i=+t.dataset.x;if(a<0){a=i;draw('Now tap the last letter');return}
+  var dx=(i%N)-(a%N),dy=(i>>3)-(a>>3),L=Math.max(Math.abs(dx),Math.abs(dy))+1,m='Not a word. Try again.';
+  if(dx===0||dy===0||Math.abs(dx)===Math.abs(dy)){var cl=[],s='',k,sx=Math.sign(dx),sy=Math.sign(dy);for(k=0;k<L;k++){var j=((a>>3)+sy*k)*N+(a%N)+sx*k;cl.push(j);s+=g[j]}
+   var r=s.split('').reverse().join(''),w=ws.filter(function(q){return q===s||q===r})[0];
+   if(w&&fd.indexOf(w)<0){fd.push(w);fc=fc.concat(cl);m=fd.length===ws.length?'All words found!':'Found '+w+'!'}}
+  a=-1;draw(m)};
+ $('#nw').onclick=reset;reset()}
+document.addEventListener('click',function(e){var t=e.target.closest('[data-v],[data-g],[data-act]');if(!t)return;
+ if(t.dataset.v)go(t.dataset.v);else if(t.dataset.g)go('play',t.dataset.g);
+ else if(t.dataset.act==='reset'){['b2048','bsnake','ssud','s2048','brx','bmem','bnum'].forEach(function(k){try{localStorage.removeItem('pa_'+k)}catch(x){}});saved()}});
+document.querySelector('nav').addEventListener('click',function(e){var b=e.target.closest('button');if(b&&b.dataset.v==='play'&&!game){go('lib')}});
+go('lib');
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});
+</script></body></html>
